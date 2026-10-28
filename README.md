@@ -1,4 +1,4 @@
-# llama.cpp + SYCL + Qwen3.6-35B-A3B on Intel Arc Pro B70
+# Run Qwen3.6-35B-A3B on Intel Arc Pro B70
 
 Launcher for [llama.cpp](https://github.com/ggml-org/llama.cpp) `llama-server` on the **SYCL backend** with **Qwen3.6-35B-A3B** fully on an **Intel Arc Pro B70** GPU. SYCL is the backend that gets the most out of Xe2 cards, and this repo pins the right build, environment and flags behind one command. It needs an Arc/Xe2 GPU with at least 24 GB of VRAM (the B70 has 32 GB), a recent Intel driver with Level Zero, and about 23 GB of free disk space; on Linux the oneAPI runtime and membership in the `render`/`video` groups are also required.
 
