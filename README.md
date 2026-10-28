@@ -50,6 +50,12 @@ The result must be `llama/llama-server` (Linux) or `llama\llama-server.exe` (Win
 
 Get [Qwen3.6-35B-A3B-UD-Q4_K_M.gguf](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/blob/main/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf) (~21 GB) and save it as `model/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf`.
 
+**For image input**, also download the multimodal projector
+[mmproj-BF16.gguf](https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/blob/main/mmproj-BF16.gguf)
+(~860 MB) as `model/mmproj-BF16.gguf`. The main GGUF is text-only on its own;
+the projector is what adds vision. The launchers add `-mm` automatically when
+this file is present.
+
 ### 3. Run
 
 ```powershell
@@ -91,6 +97,7 @@ Model loads in ~25 seconds. The script also kills any stale `llama-server` holdi
 | `-b` / `-ub` | `8192` / `4096` | Batch and micro-batch for prompt processing |
 | `-t` | `8` | CPU threads (tuned for 6P+4E; adjust to your CPU) |
 | `--parallel` | `1` | One request at a time |
+| `-mm` | `model/mmproj-BF16.gguf` | Multimodal projector — enables image input (auto-added when the file exists) |
 | `--jinja` | — | Chat template from GGUF metadata |
 | `--no-warmup` | — | Skip warm-up pass (SYCL cache handles it) |
 | `--no-reasoning-preserve` | — | Do not feed previous reasoning back into the prompt |

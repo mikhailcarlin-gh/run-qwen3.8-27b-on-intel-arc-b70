@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SERVER_BIN="$SCRIPT_DIR/llama/llama-server"
 MODEL_PATH="$SCRIPT_DIR/model/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+MMPROJ_PATH="$SCRIPT_DIR/model/mmproj-BF16.gguf"
 SLOTS_DIR="$SCRIPT_DIR/cache/llama-slots"
 SYCL_CACHE="$SCRIPT_DIR/cache/sycl"
 
@@ -91,6 +92,16 @@ echo "  Context:                $CONTEXT"
 echo "  Reasoning preserve:     disabled"
 echo "  SYCL_CACHE_PERSISTENT:  $SYCL_CACHE_PERSISTENT"
 
+# Vision: the multimodal projector (mmproj) enables image input.
+# Without it llama-server runs text-only and the API rejects images.
+VISION_ARGS=()
+if [[ -f "$MMPROJ_PATH" ]]; then
+    echo "  Vision:                 enabled ($MMPROJ_PATH)"
+    VISION_ARGS=(-mm "$MMPROJ_PATH")
+else
+    echo "  Vision:                 disabled (mmproj not found, see README)"
+fi
+
 exec "$SERVER_BIN" \
     -m "$MODEL_PATH" \
     -a qwen3.6-35b-a3b \
@@ -101,4 +112,5 @@ exec "$SERVER_BIN" \
     -t 8 --parallel 1 \
     --jinja --no-warmup --no-reasoning-preserve \
     --slot-save-path "$SLOTS_DIR" \
+    ${VISION_ARGS[@]+"${VISION_ARGS[@]}"} \
     --metrics

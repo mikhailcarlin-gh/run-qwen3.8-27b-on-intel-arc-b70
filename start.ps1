@@ -4,6 +4,7 @@
 $ScriptDir  = $PSScriptRoot
 $ServerExe  = Join-Path $ScriptDir "llama\llama-server.exe"
 $ModelPath  = Join-Path $ScriptDir "model\Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+$MmprojPath = Join-Path $ScriptDir "model\mmproj-BF16.gguf"
 $SlotsDir   = Join-Path $ScriptDir "cache\llama-slots"
 $SyclCache  = Join-Path $ScriptDir "cache\sycl"
 
@@ -78,14 +79,26 @@ Write-Host "  Context:                $Context" -ForegroundColor DarkGray
 Write-Host "  Reasoning preserve:     disabled" -ForegroundColor DarkGray
 Write-Host "  SYCL_CACHE_PERSISTENT:  $env:SYCL_CACHE_PERSISTENT" -ForegroundColor DarkGray
 
-& $ServerExe `
-    -m $ModelPath `
-    -a qwen3.6-35b-a3b `
-    --host $HostAddr --port $Port `
-    -ngl 99 -c $Context `
-    -ctk q8_0 -ctv q8_0 -fa on `
-    -b 8192 -ub 4096 `
-    -t 8 --parallel 1 `
-    --jinja --no-warmup --no-reasoning-preserve `
-    --slot-save-path $SlotsDir `
-    --metrics
+$serverArgs = @(
+    "-m", $ModelPath,
+    "-a", "qwen3.6-35b-a3b",
+    "--host", $HostAddr, "--port", $Port,
+    "-ngl", "99", "-c", "$Context",
+    "-ctk", "q8_0", "-ctv", "q8_0", "-fa", "on",
+    "-b", "8192", "-ub", "4096",
+    "-t", "8", "--parallel", "1",
+    "--jinja", "--no-warmup", "--no-reasoning-preserve",
+    "--slot-save-path", $SlotsDir,
+    "--metrics"
+)
+
+# Vision: the multimodal projector (mmproj) enables image input.
+# Without it llama-server runs text-only and the API rejects images.
+if (Test-Path $MmprojPath) {
+    Write-Host "  Vision:                 enabled ($MmprojPath)" -ForegroundColor DarkGray
+    $serverArgs += @("-mm", $MmprojPath)
+} else {
+    Write-Host "  Vision:                 disabled (mmproj not found, see README)" -ForegroundColor Yellow
+}
+
+& $ServerExe @serverArgs
