@@ -2,9 +2,12 @@
 
 # --- Paths ---
 $ScriptDir  = $PSScriptRoot
-$ServerExe  = Join-Path $ScriptDir "llama\llama-server.exe"
-$ModelPath  = Join-Path $ScriptDir "model\Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
-$MmprojPath = Join-Path $ScriptDir "model\mmproj-BF16.gguf"
+# Pinned llama.cpp SYCL build - run .\setup.ps1 to download it.
+$LlamaBuild = "b11953"
+$LlamaDir   = Join-Path $ScriptDir "llama-$LlamaBuild-bin-win-sycl-x64"
+$ServerExe  = Join-Path $LlamaDir "llama-server.exe"
+$ModelPath  = Join-Path $ScriptDir "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+$MmprojPath = Join-Path $ScriptDir "mmproj-BF16.gguf"
 $SlotsDir   = Join-Path $ScriptDir "cache\llama-slots"
 $SyclCache  = Join-Path $ScriptDir "cache\sycl"
 
@@ -15,10 +18,10 @@ $Context  = 131072
 
 # --- Checks ---
 if (-not (Test-Path $ServerExe)) {
-    Write-Error "llama-server.exe not found at $ServerExe - download the SYCL build and put it into .\llama (see README.md)"; exit 1
+    Write-Error "llama-server.exe not found at $ServerExe - run .\setup.ps1 to download the pinned SYCL build"; exit 1
 }
 if (-not (Test-Path $ModelPath)) {
-    Write-Error "Model not found at $ModelPath - download the GGUF and put it into .\model (see README.md)"; exit 1
+    Write-Error "Model not found at $ModelPath - run .\setup.ps1 to download the GGUF"; exit 1
 }
 
 # --- Port ---

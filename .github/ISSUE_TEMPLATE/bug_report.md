@@ -17,4 +17,4 @@ What happened?
 **Environment**
 - OS: [Windows 11 / Linux distro]
 - GPU: [Intel Arc Pro B70 / other]
-- llama.cpp build: [e.g. b11576]
+- llama.cpp build: [e.g. b11953]

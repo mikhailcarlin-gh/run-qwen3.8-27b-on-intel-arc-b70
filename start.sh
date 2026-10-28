@@ -3,9 +3,12 @@ set -euo pipefail
 
 # --- Paths ---
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-SERVER_BIN="$SCRIPT_DIR/llama/llama-server"
-MODEL_PATH="$SCRIPT_DIR/model/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
-MMPROJ_PATH="$SCRIPT_DIR/model/mmproj-BF16.gguf"
+# Pinned llama.cpp SYCL build - run ./setup.sh to download it.
+LLAMA_BUILD="b11953"
+LLAMA_DIR="$SCRIPT_DIR/llama-${LLAMA_BUILD}-bin-ubuntu-sycl-fp16-x64"
+SERVER_BIN="$LLAMA_DIR/llama-server"
+MODEL_PATH="$SCRIPT_DIR/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
+MMPROJ_PATH="$SCRIPT_DIR/mmproj-BF16.gguf"
 SLOTS_DIR="$SCRIPT_DIR/cache/llama-slots"
 SYCL_CACHE="$SCRIPT_DIR/cache/sycl"
 
@@ -16,11 +19,11 @@ CONTEXT=131072
 
 # --- Checks ---
 if [[ ! -x "$SERVER_BIN" ]]; then
-    echo "error: $SERVER_BIN is missing or not executable - unpack the Linux SYCL build into ./llama (see README.md)" >&2
+    echo "error: $SERVER_BIN is missing or not executable - run ./setup.sh to download the pinned Linux SYCL build" >&2
     exit 1
 fi
 if [[ ! -f "$MODEL_PATH" ]]; then
-    echo "error: model not found at $MODEL_PATH - download the GGUF into ./model (see README.md)" >&2
+    echo "error: model not found at $MODEL_PATH - run ./setup.sh to download the GGUF" >&2
     exit 1
 fi
 
