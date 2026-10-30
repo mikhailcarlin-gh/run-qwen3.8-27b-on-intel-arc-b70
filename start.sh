@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LLAMA_BUILD="b11953"
 LLAMA_DIR="$SCRIPT_DIR/llama-${LLAMA_BUILD}-bin-ubuntu-sycl-fp16-x64"
 SERVER_BIN="$LLAMA_DIR/llama-server"
-MODEL_PATH="$SCRIPT_DIR/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"
-MMPROJ_PATH="$SCRIPT_DIR/mmproj-BF16.gguf"
+MODEL_PATH="$SCRIPT_DIR/Qwen3.8-27B-UD-Q4_K_M.gguf"
+MMPROJ_PATH="$SCRIPT_DIR/mmproj-Qwen3.8-27B-BF16.gguf"
 SLOTS_DIR="$SCRIPT_DIR/cache/llama-slots"
 SYCL_CACHE="$SCRIPT_DIR/cache/sycl"
 
@@ -90,9 +90,10 @@ export SYCL_CACHE_DIR="$SYCL_CACHE"
 # --- Start ---
 echo "Starting llama-server on $HOST_ADDR:$PORT"
 echo "  Model:                  $MODEL_PATH"
-echo "  Alias:                  qwen3.6-35b-a3b"
+echo "  Alias:                  qwen3.8-27b"
 echo "  Context:                $CONTEXT"
-echo "  Reasoning preserve:     disabled"
+echo "  MTP (speculative):      enabled (draft-mtp, n-max=2)"
+echo "  Reasoning preserve:     enabled"
 echo "  SYCL_CACHE_PERSISTENT:  $SYCL_CACHE_PERSISTENT"
 
 # Vision: the multimodal projector (mmproj) enables image input.
@@ -107,13 +108,14 @@ fi
 
 exec "$SERVER_BIN" \
     -m "$MODEL_PATH" \
-    -a qwen3.6-35b-a3b \
+    -a qwen3.8-27b \
     --host "$HOST_ADDR" --port "$PORT" \
     -ngl 99 -c "$CONTEXT" \
     -ctk q8_0 -ctv q8_0 -fa on \
     -b 8192 -ub 4096 \
     -t 8 --parallel 1 \
-    --jinja --no-warmup --no-reasoning-preserve \
+    --spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-p-min 0.1 \
+    --jinja --no-warmup --reasoning-preserve \
     --slot-save-path "$SLOTS_DIR" \
     ${VISION_ARGS[@]+"${VISION_ARGS[@]}"} \
     --metrics

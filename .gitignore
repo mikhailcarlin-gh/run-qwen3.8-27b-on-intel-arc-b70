@@ -1,8 +1,8 @@
 # Downloaded by setup.ps1 / setup.sh - never commit binaries
 /llama-b11953-bin-win-sycl-x64/
 /llama-b11953-bin-ubuntu-sycl-fp16-x64/
-/Qwen3.6-35B-A3B-UD-Q4_K_M.gguf
-/mmproj-BF16.gguf
+/Qwen3.8-27B-UD-Q4_K_M.gguf
+/mmproj-Qwen3.8-27B-BF16.gguf
 *.part
 
 # Runtime cache (slot saves, compiled SYCL kernels)

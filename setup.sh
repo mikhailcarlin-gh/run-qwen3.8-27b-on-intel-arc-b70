@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Download the pinned llama.cpp SYCL build and the Qwen3.6-35B-A3B GGUFs.
+# Download the pinned llama.cpp SYCL build and the Qwen3.8-27B GGUFs.
 # Run once after cloning:  ./setup.sh     (add --force to re-download everything)
 
 FORCE=0
@@ -17,10 +17,11 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 LLAMA_DIR="$SCRIPT_DIR/$LLAMA_ASSET"
 LLAMA_URL="https://github.com/ggml-org/llama.cpp/releases/download/${LLAMA_BUILD}/${LLAMA_ASSET}.tar.gz"
 
-HF_REPO="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main"
+HF_REPO="https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main"
+# Remote name on Hugging Face -> local file name (the mmproj file is renamed).
 MODEL_FILES=(
-    "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf"  # ~21 GB, text model
-    "mmproj-BF16.gguf"                # ~860 MB, vision projector
+    "Qwen3.8-27B-UD-Q4_K_M.gguf Qwen3.8-27B-UD-Q4_K_M.gguf"  # ~15 GB, text model
+    "mmproj-BF16.gguf mmproj-Qwen3.8-27B-BF16.gguf"          # ~0.9 GB, vision projector
 )
 
 fetch() {
@@ -77,9 +78,10 @@ install_llama() {
 echo "llama.cpp $LLAMA_BUILD ($LLAMA_ASSET)"
 install_llama
 
-echo "Qwen3.6-35B-A3B GGUFs"
-for name in "${MODEL_FILES[@]}"; do
-    fetch "$HF_REPO/$name" "$SCRIPT_DIR/$name"
+echo "Qwen3.8-27B GGUFs"
+for pair in "${MODEL_FILES[@]}"; do
+    read -r remote local_name <<< "$pair"
+    fetch "$HF_REPO/$remote" "$SCRIPT_DIR/$local_name"
 done
 
 echo

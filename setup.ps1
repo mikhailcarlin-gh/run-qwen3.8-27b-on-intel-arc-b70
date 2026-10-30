@@ -1,4 +1,4 @@
-# Download the pinned llama.cpp SYCL build and the Qwen3.6-35B-A3B GGUFs.
+# Download the pinned llama.cpp SYCL build and the Qwen3.8-27B GGUFs.
 # Run once after cloning:  .\setup.ps1     (add -Force to re-download everything)
 
 param(
@@ -15,10 +15,11 @@ $LlamaAsset = "llama-$LlamaBuild-bin-win-sycl-x64"
 $LlamaDir   = Join-Path $PSScriptRoot $LlamaAsset
 $LlamaUrl   = "https://github.com/ggml-org/llama.cpp/releases/download/$LlamaBuild/$LlamaAsset.zip"
 
-$HfRepo = "https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF/resolve/main"
+$HfRepo = "https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main"
+# Remote name on Hugging Face -> local file name (the mmproj file is renamed).
 $ModelFiles = @(
-    "Qwen3.6-35B-A3B-UD-Q4_K_M.gguf",  # ~21 GB, text model
-    "mmproj-BF16.gguf"                 # ~860 MB, vision projector
+    @{ Remote = "Qwen3.8-27B-UD-Q4_K_M.gguf"; Local = "Qwen3.8-27B-UD-Q4_K_M.gguf" },  # ~15 GB, text model
+    @{ Remote = "mmproj-BF16.gguf"; Local = "mmproj-Qwen3.8-27B-BF16.gguf" }            # ~0.9 GB, vision projector
 )
 
 function Get-File {
@@ -85,9 +86,9 @@ function Install-Llama {
 Write-Host "llama.cpp $LlamaBuild ($LlamaAsset)" -ForegroundColor Cyan
 Install-Llama
 
-Write-Host "Qwen3.6-35B-A3B GGUFs" -ForegroundColor Cyan
-foreach ($name in $ModelFiles) {
-    Get-File -Url "$HfRepo/$name" -Destination (Join-Path $PSScriptRoot $name)
+Write-Host "Qwen3.8-27B GGUFs" -ForegroundColor Cyan
+foreach ($f in $ModelFiles) {
+    Get-File -Url "$HfRepo/$($f.Remote)" -Destination (Join-Path $PSScriptRoot $f.Local)
 }
 
 Write-Host ""
