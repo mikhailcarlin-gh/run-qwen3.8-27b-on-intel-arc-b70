@@ -65,7 +65,7 @@ Write-Host "  Model:                  $ModelPath" -ForegroundColor DarkGray
 Write-Host "  Alias:                  qwen3.8-27b" -ForegroundColor DarkGray
 Write-Host "  Context:                $Context" -ForegroundColor DarkGray
 Write-Host "  MTP (speculative):      enabled (draft-mtp, n-max=2)" -ForegroundColor DarkGray
-Write-Host "  Reasoning preserve:     enabled" -ForegroundColor DarkGray
+Write-Host "  Reasoning format:       none (inline think tags)" -ForegroundColor DarkGray
 Write-Host "  SYCL_CACHE_PERSISTENT:  $env:SYCL_CACHE_PERSISTENT" -ForegroundColor DarkGray
 
 $serverArgs = @(
@@ -79,7 +79,7 @@ $serverArgs = @(
     "--spec-type", "draft-mtp",
     "--spec-draft-n-max", "2",
     "--spec-draft-p-min", "0.1",
-    "--jinja", "--no-warmup", "--reasoning-preserve",
+    "--jinja", "--no-warmup", "--reasoning-format", "none",
     "--slot-save-path", $SlotsDir,
     "--metrics"
 )

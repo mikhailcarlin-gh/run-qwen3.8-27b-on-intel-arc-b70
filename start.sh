@@ -93,7 +93,7 @@ echo "  Model:                  $MODEL_PATH"
 echo "  Alias:                  qwen3.8-27b"
 echo "  Context:                $CONTEXT"
 echo "  MTP (speculative):      enabled (draft-mtp, n-max=2)"
-echo "  Reasoning preserve:     enabled"
+echo "  Reasoning format:       none (inline think tags)"
 echo "  SYCL_CACHE_PERSISTENT:  $SYCL_CACHE_PERSISTENT"
 
 # Vision: the multimodal projector (mmproj) enables image input.
@@ -115,7 +115,7 @@ exec "$SERVER_BIN" \
     -b 8192 -ub 4096 \
     -t 8 --parallel 1 \
     --spec-type draft-mtp --spec-draft-n-max 2 --spec-draft-p-min 0.1 \
-    --jinja --no-warmup --reasoning-preserve \
+    --jinja --no-warmup --reasoning-format none \
     --slot-save-path "$SLOTS_DIR" \
     ${VISION_ARGS[@]+"${VISION_ARGS[@]}"} \
     --metrics
