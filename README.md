@@ -6,14 +6,13 @@ Docker image that serves **Qwen3.8-27B** with [llama.cpp](https://github.com/ggm
 
 ## Quick start
 
-1. Put both GGUFs into the repository root (see [Models](#models)).
-2. Start the server:
+On a machine with the Intel GPU driver and Docker installed, a fresh clone is one command:
 
-   ```powershell
-   .\run.ps1        # Windows     (Linux: ./run.sh)
-   ```
+```powershell
+.\run.ps1        # Windows     (Linux: ./run.sh)
+```
 
-That is the only command. On the first run it builds the image (~30–60 min: `llama.cpp` is compiled from source), then starts the container; later runs go straight to the server. Before launching it checks that Docker is running, that the model files are in place, and that nothing else holds the port — if an older `llama-server` does, the script offers to stop it (one GPU, one model).
+On the first run it downloads the GGUFs (~16 GB, resumable), builds the image (~30–60 min: `llama.cpp` is compiled from source) and starts the container; later runs go straight to the server. Before launching it checks that Docker is running and that nothing else holds the port — if an older `llama-server` does, the script offers to stop it (one GPU, one model).
 
 | Endpoint | URL |
 | --- | --- |
@@ -37,7 +36,7 @@ The container runs in the foreground: Ctrl+C stops and removes it, the log is it
 
 ## Models
 
-`run.*` mounts the repository root at `/models` and expects the files from [`unsloth/Qwen3.8-27B-GGUF`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF):
+`run.*` mounts the repository root at `/models` and downloads the files from [`unsloth/Qwen3.8-27B-GGUF`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) when they are missing:
 
 | File | Size | Role |
 | --- | --- | --- |
@@ -52,8 +51,9 @@ Paths are set with environment variables, all of them optional:
 | `MODEL_PATH` | `/models/Qwen3.8-27B-UD-Q4_K_M.gguf` | model path **inside the container** |
 | `MMPROJ_PATH` | `/models/mmproj-Qwen3.8-27B-BF16.gguf` | projector path **inside the container** |
 | `MODEL_ALIAS` | `qwen3.8-27b` | model name in the API |
+| `MODEL_URL` / `MMPROJ_URL` | Hugging Face `unsloth/Qwen3.8-27B-GGUF` | where the files are downloaded from when missing |
 
-Keeping the files in the repository root is enough — nothing else to configure. To use another folder or another GGUF:
+Keeping the files in the repository root is enough — nothing else to configure, and missing files are downloaded automatically. To use another folder, another GGUF or another source:
 
 ```powershell
 $env:MODELS_DIR = 'D:\models'

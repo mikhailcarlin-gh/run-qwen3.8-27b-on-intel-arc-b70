@@ -16,6 +16,8 @@ $ModelsDir = if ($env:MODELS_DIR) { $env:MODELS_DIR } else { $PSScriptRoot }
 $ModelPath = if ($env:MODEL_PATH) { $env:MODEL_PATH } else { '/models/Qwen3.8-27B-UD-Q4_K_M.gguf' }
 $MmprojPath = if ($env:MMPROJ_PATH) { $env:MMPROJ_PATH } else { '/models/mmproj-Qwen3.8-27B-BF16.gguf' }
 $CacheVolume = if ($env:CACHE_VOLUME) { $env:CACHE_VOLUME } else { 'qwen3.8-27b-arc-sycl-cache' }
+$ModelUrl = if ($env:MODEL_URL) { $env:MODEL_URL } else { 'https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_M.gguf' }
+$MmprojUrl = if ($env:MMPROJ_URL) { $env:MMPROJ_URL } else { 'https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/mmproj-BF16.gguf' }
 
 function Stop-WithError([string]$Message) {
     Write-Host "error: $Message" -ForegroundColor Red
@@ -29,20 +31,58 @@ function Get-HostPath([string]$ContainerPath) {
     return Join-Path $ModelsDir $ContainerPath.Substring($prefix.Length)
 }
 
+# Download with curl: resumable, so an interrupted 15 GB transfer is not lost.
+function Get-ModelFile {
+    param([string]$Url, [string]$Destination, [switch]$Optional, [string]$Hint = 'the model is ~15 GB')
+
+    $name = Split-Path -Leaf $Destination
+    $part = "$Destination.part"
+    Write-Host "downloading $name (one-time download; $Hint)" -ForegroundColor Yellow
+
+    $curl = @('-L', '--fail', '--retry', '3', '--retry-delay', '5', '--progress-bar', '-o', $part)
+    if ((Test-Path $part) -and (Get-Item $part).Length -gt 0) {
+        Write-Host '  resuming an interrupted download' -ForegroundColor DarkGray
+        $curl += @('-C', '-')
+    }
+    $curl += $Url
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'   # curl reports progress on stderr
+    & curl.exe @curl
+    $code = $LASTEXITCODE
+    $ErrorActionPreference = $previous
+
+    if ($code -ne 0) {
+        Remove-Item $part -Force -ErrorAction SilentlyContinue
+        if ($Optional) {
+            Write-Host "warning: could not download $name - continuing without it" -ForegroundColor Yellow
+            return
+        }
+        Stop-WithError "download failed (curl exit $code) - run .\run.ps1 again to retry"
+    }
+    Move-Item $part $Destination -Force
+    Write-Host "  saved: $Destination" -ForegroundColor Green
+}
+
 # --- Docker is up? ---
 & docker version --format '{{.Server.Version}}' *> $null
 if ($LASTEXITCODE -ne 0) {
     Stop-WithError 'Docker is not running - start Docker Desktop and try again'
 }
 
-# --- Models present? ---
+# --- Models present? Download them on a fresh clone. ---
+if (-not (Test-Path $ModelsDir)) {
+    New-Item -ItemType Directory -Path $ModelsDir -Force | Out-Null
+}
+
 $hostModel = Get-HostPath $ModelPath
 if ($hostModel -and -not (Test-Path $hostModel)) {
-    Stop-WithError "model not found: $hostModel`n       put the GGUF files into $ModelsDir (see README, Models)"
+    Get-ModelFile -Url $ModelUrl -Destination $hostModel
 }
+
 $hostMmproj = Get-HostPath $MmprojPath
 if ($hostMmproj -and -not (Test-Path $hostMmproj)) {
-    Write-Host "warning: vision projector not found: $hostMmproj - running text-only" -ForegroundColor Yellow
+    Get-ModelFile -Url $MmprojUrl -Destination $hostMmproj -Optional -Hint 'the projector is ~0.9 GB'
 }
 
 # --- Image present? Build it on the first run. ---

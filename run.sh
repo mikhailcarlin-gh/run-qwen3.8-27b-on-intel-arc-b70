@@ -19,6 +19,8 @@ MODELS_DIR="${MODELS_DIR:-$SCRIPT_DIR}"
 MODEL_PATH="${MODEL_PATH:-/models/Qwen3.8-27B-UD-Q4_K_M.gguf}"
 MMPROJ_PATH="${MMPROJ_PATH:-/models/mmproj-Qwen3.8-27B-BF16.gguf}"
 CACHE_VOLUME="${CACHE_VOLUME:-qwen3.8-27b-arc-sycl-cache}"
+MODEL_URL="${MODEL_URL:-https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/Qwen3.8-27B-UD-Q4_K_M.gguf}"
+MMPROJ_URL="${MMPROJ_URL:-https://huggingface.co/unsloth/Qwen3.8-27B-GGUF/resolve/main/mmproj-BF16.gguf}"
 
 fail() {
     echo "error: $*" >&2
@@ -33,19 +35,46 @@ host_path() {
     esac
 }
 
+# Download with curl: resumable, so an interrupted 15 GB transfer is not lost.
+download() {
+    local url="$1" dest="$2" optional="${3:-}" hint="${4:-the model is ~15 GB}"
+    local part="$dest.part"
+    local extra=()
+
+    echo "downloading $(basename "$dest") (one-time download; $hint)"
+    if [[ -s "$part" ]]; then
+        echo "  resuming an interrupted download"
+        extra=(-C -)
+    fi
+
+    if curl -L --fail --retry 3 --retry-delay 5 --progress-bar ${extra[@]+"${extra[@]}"} \
+            -o "$part" "$url"; then
+        mv "$part" "$dest"
+        echo "  saved: $dest"
+        return 0
+    fi
+
+    rm -f "$part"
+    if [[ -n "$optional" ]]; then
+        echo "warning: could not download - continuing without it" >&2
+        return 0
+    fi
+    fail "download failed - rerun ./run.sh to retry"
+}
+
 # --- Docker is up? ---
 docker version --format '{{.Server.Version}}' >/dev/null 2>&1 \
     || fail "Docker is not running - start the Docker daemon and try again"
 
-# --- Models present? ---
+# --- Models present? Download them on a fresh clone. ---
+mkdir -p "$MODELS_DIR"
 model_file="$(host_path "$MODEL_PATH")"
 if [[ -n "$model_file" && ! -f "$model_file" ]]; then
-    fail "model not found: $model_file
-       put the GGUF files into $MODELS_DIR (see README, Models)"
+    download "$MODEL_URL" "$model_file"
 fi
 mmproj_file="$(host_path "$MMPROJ_PATH")"
 if [[ -n "$mmproj_file" && ! -f "$mmproj_file" ]]; then
-    echo "warning: vision projector not found: $mmproj_file - running text-only" >&2
+    download "$MMPROJ_URL" "$mmproj_file" optional "the projector is ~0.9 GB"
 fi
 
 # --- Image present? Build it on the first run. ---
