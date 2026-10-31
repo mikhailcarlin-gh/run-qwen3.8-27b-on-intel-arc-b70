@@ -1,0 +1,16 @@
+# Only entrypoint.sh is copied from the build context. Everything else -
+# models, downloaded builds, caches, git metadata - stays on the host.
+.git
+.github
+.gitattributes
+*.gguf
+*.part
+cache/
+llama-*/
+*.md
+LICENSE
+setup.ps1
+setup.sh
+start.ps1
+start.sh
+docker-compose.yml
