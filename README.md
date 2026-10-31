@@ -1,124 +1,97 @@
-# Run Qwen3.8-27B on Intel Arc Pro B70
+# Qwen3.8-27B on Intel Arc Pro B70
 
-Docker image that serves **Qwen3.8-27B** with [llama.cpp](https://github.com/ggml-org/llama.cpp)'s `llama-server` on the **SYCL backend**, fully on an **Intel Arc Pro B70**. SYCL is the backend that gets the most out of Xe2 cards, and this repo pins the right build, environment and flags behind two commands.
+Serves **Qwen3.8-27B** with `llama-server` (llama.cpp, **SYCL** backend) fully on an Intel Arc GPU, in Docker.
 
-`llama.cpp` (**b11953**, SYCL + FP16) is compiled from source while the image is built; the model files are never baked in — they are mounted from the repository root at `/models`. Needs an Arc/Xe2 GPU with at least 24 GB of VRAM (the B70 has 32 GB), a recent Intel driver with Level Zero, Docker with GPU passthrough (Docker Desktop on Windows, the Intel GPU driver on Linux), and about 16 GB of disk space for the model files.
+One command does everything: downloads the model, builds the image (`llama.cpp` is compiled inside), starts the server.
 
-## Quick start
+## Requirements
 
-On a machine with the Intel GPU driver and Docker installed, a fresh clone is one command:
+- Intel Arc / Xe2 GPU with at least 24 GB of VRAM (Arc Pro B70: 32 GB) and a recent driver with Level Zero
+- Docker — Docker Desktop with the WSL2 backend on Windows, Docker Engine + Intel GPU driver on Linux
+- ~31 GB of free disk: 16 GB for the models, 15 GB for the image
+
+## Start
 
 ```powershell
-.\run.ps1        # Windows     (Linux: ./run.sh)
+.\run.ps1        # Windows
 ```
 
-On the first run it downloads the GGUFs (~16 GB, resumable), builds the image (~30–60 min: `llama.cpp` is compiled from source) and starts the container; later runs go straight to the server. Before launching it checks that Docker is running and that nothing else holds the port — if an older `llama-server` does, the script offers to stop it (one GPU, one model).
+```bash
+./run.sh         # Linux
+```
+
+The first run takes a while, in three steps:
+
+1. downloads the two GGUFs into the repository root (~16 GB, resumes if interrupted),
+2. builds the image (~30–60 min — `llama.cpp` is compiled from source),
+3. starts the server.
+
+Later runs go straight to step 3: everything already present is reused.
+
+## Use
 
 | Endpoint | URL |
 | --- | --- |
 | Web UI | http://127.0.0.1:8010 |
-| OpenAI API | http://127.0.0.1:8010/v1 (model `qwen3.8-27b`) |
-| Health / Metrics | http://127.0.0.1:8010/health · http://127.0.0.1:8010/metrics |
+| OpenAI API | http://127.0.0.1:8010/v1 — model name `qwen3.8-27b` |
+| Health / metrics | http://127.0.0.1:8010/health · http://127.0.0.1:8010/metrics |
 
-The container runs in the foreground: Ctrl+C stops and removes it, the log is its stdout. The container is published on `127.0.0.1` only — no API key is set, so it is not exposed to the network.
+```bash
+curl http://127.0.0.1:8010/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"qwen3.8-27b","messages":[{"role":"user","content":"Hello"}]}'
+```
 
-## Scripts
+Ctrl+C stops the container and removes it. The port is published on `127.0.0.1` only: no API key is set, so the server is not exposed to the network.
 
-| Script | What it does |
-| --- | --- |
-| `run.ps1` / `run.sh` | the one command: builds the image if it is missing, checks models, port and Docker, then starts the container with models mounted at `/models` (read-only) and the SYCL cache volume at `/cache` |
-| `build.ps1` / `build.sh` | rebuild the image explicitly, e.g. after `--build-arg LLAMA_REF=b12000` (extra arguments are passed to `docker build`) |
+## Settings
 
-`run.*` detects the platform on its own:
-
-- **Windows / Docker Desktop (WSL2 backend)** — passes `/dev/dxg` plus the WSL driver mounts (`/usr/lib/wsl/lib`, `/usr/lib/wsl/drivers`). No privileged mode needed; verified with an Arc Pro B70 in [microsoft/WSL#41376](https://github.com/microsoft/WSL/issues/41376).
-- **Bare-metal Linux** — passes `/dev/dri/renderD128` + `/dev/dri/card0` and the `render` group (if your render node is not `renderD128`, check `ls -la /dev/dri`).
-
-## Models
-
-`run.*` mounts the repository root at `/models` and downloads the files from [`unsloth/Qwen3.8-27B-GGUF`](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) when they are missing:
-
-| File | Size | Role |
-| --- | --- | --- |
-| `Qwen3.8-27B-UD-Q4_K_M.gguf` | ~15 GB | the model |
-| `mmproj-Qwen3.8-27B-BF16.gguf` | ~0.9 GB | vision projector (the HF file is `mmproj-BF16.gguf`) |
-
-Paths are set with environment variables, all of them optional:
+Everything is optional — the defaults work as is. On PowerShell set `$env:NAME = 'value'` before `.\run.ps1`, on Linux prefix the command (`NAME=value ./run.sh`).
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `MODELS_DIR` | repository root | host folder mounted at `/models` |
-| `MODEL_PATH` | `/models/Qwen3.8-27B-UD-Q4_K_M.gguf` | model path **inside the container** |
-| `MMPROJ_PATH` | `/models/mmproj-Qwen3.8-27B-BF16.gguf` | projector path **inside the container** |
+| `MODEL_PATH` | `/models/Qwen3.8-27B-UD-Q4_K_M.gguf` | model path inside the container |
+| `MMPROJ_PATH` | `/models/mmproj-Qwen3.8-27B-BF16.gguf` | vision projector (`mmproj`) inside the container |
 | `MODEL_ALIAS` | `qwen3.8-27b` | model name in the API |
-| `MODEL_URL` / `MMPROJ_URL` | Hugging Face `unsloth/Qwen3.8-27B-GGUF` | where the files are downloaded from when missing |
+| `CONTEXT` | `131072` | context size (128K) |
+| `PORT` | `8010` | host port |
+| `LLAMA_EXTRA_ARGS` | — | extra `llama-server` flags, e.g. `--log-disable` |
+| `MODEL_URL` / `MMPROJ_URL` | `unsloth/Qwen3.8-27B-GGUF` | where the files are downloaded from |
 
-Keeping the files in the repository root is enough — nothing else to configure, and missing files are downloaded automatically. To use another folder, another GGUF or another source:
+The remaining launch flags (`NGL`, `CT_K`/`CT_V`, `FA`, `BATCH`, `UBATCH`, `THREADS`, `PARALLEL`) are documented with their defaults at the top of `entrypoint.sh`.
+
+To run a different model, put the GGUF anywhere and point the script at it:
 
 ```powershell
 $env:MODELS_DIR = 'D:\models'
-$env:MODEL_PATH = '/models/Qwen3.8-27B-UD-Q4_K_M.gguf'
+$env:MODEL_PATH = '/models/my-model.gguf'
+$env:MODEL_ALIAS = 'my-model'
 .\run.ps1
 ```
 
-```bash
-MODELS_DIR=/data/models MODEL_PATH=/models/my-model.gguf ./run.sh
-```
+## Rebuild
 
-If `MMPROJ_PATH` does not exist the server starts text-only and the API rejects images.
-
-## Launch settings
-
-Every launch flag is an environment variable read by `entrypoint.sh`; the defaults live in the `Dockerfile`. `run.*` forwards these from the host as-is:
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `CONTEXT` | `131072` | context size (128K) |
-| `NGL` | `99` | layers offloaded to the GPU |
-| `CT_K` / `CT_V` | `q8_0` | KV cache quantization |
-| `FA` | `on` | Flash Attention |
-| `BATCH` / `UBATCH` | `8192` / `4096` | prompt batch sizes |
-| `THREADS` / `PARALLEL` | `8` / `1` | CPU threads / parallel slots |
-| `LLAMA_EXTRA_ARGS` | — | extra `llama-server` arguments, e.g. `--log-disable` |
-| `PORT` | `8010` | host port to publish |
-| `IMAGE` / `NAME` | `qwen3.8-27b-arc:local` / `qwen3.8-27b` | image and container names |
-| `CACHE_VOLUME` | `qwen3.8-27b-arc-sycl-cache` | named volume for the SYCL cache |
-
-Example — a smaller context to free VRAM:
+The image is built once. Rebuild it with `build.ps1` / `build.sh` — for example after moving to another `llama.cpp` release:
 
 ```powershell
-$env:CONTEXT = '32768'
-.\run.ps1
+.\build.ps1 --build-arg LLAMA_REF=b12000
 ```
 
-## Checking GPU passthrough
+## Troubleshooting
 
-The entrypoint prints `sycl-ls` output on every start; the device list must contain `[level_zero:gpu]`. To check without starting the server:
+- **The GPU is not detected.** The container prints `sycl-ls` on every start; the list must contain `[level_zero:gpu]`. Check it separately:
 
-```powershell
-# Windows (Docker Desktop, WSL2 backend)
-docker run --rm --entrypoint /app/sycl-ls `
-  --device /dev/dxg `
-  -v /usr/lib/wsl/lib:/usr/lib/wsl/lib:ro `
-  -v /usr/lib/wsl/drivers:/usr/lib/wsl/drivers:ro `
-  qwen3.8-27b-arc:local
-```
+  ```powershell
+  docker run --rm --entrypoint /app/sycl-ls --device /dev/dxg `
+    -v /usr/lib/wsl/lib:/usr/lib/wsl/lib:ro -v /usr/lib/wsl/drivers:/usr/lib/wsl/drivers:ro `
+    qwen3.8-27b-arc:local
+  ```
 
-```bash
-# Linux (bare metal)
-docker run --rm --entrypoint /app/sycl-ls \
-  --device /dev/dri/renderD128 --device /dev/dri/card0 \
-  --group-add "$(stat -c '%g' /dev/dri/renderD128)" \
-  qwen3.8-27b-arc:local
-```
+  On Linux use `--device /dev/dri/renderD128 --device /dev/dri/card0 --group-add <render-gid>` instead. No device = the driver/WSL2 is outdated (reboot Windows) or the `render` group is missing.
 
-No `level_zero` device = passthrough is not set up yet (on WSL2: the Intel graphics driver and WSL2 must be current, reboot Windows if needed; on Linux: check the `render` group and the `/dev/dri` nodes).
+- **One model at a time.** Weights plus the 128K KV cache take most of the 32 GB, so a second copy does not fit. If another `llama-server` is running, the script offers to stop it; if the container dies with exit code 139/137, the GPU is out of memory — free it or lower `CONTEXT`.
 
-## Notes
+- **The first answer is slow.** SYCL compiles its kernels on first use; they are cached in a Docker volume, so later starts are fast.
 
-- **One instance at a time.** Weights plus the 131k-token KV cache occupy most of the GPU's VRAM, so a second copy — another container, or a native `llama-server` — does not fit on a 32 GB Arc. Two instances fight over VRAM and the GPU OOM-kills them in a crash loop (processes die silently at the big allocations, no error in the logs).
-- **First prompt is slow**: SYCL compiles its kernels on first use. The cache lives in the `sycl-cache` volume, so later starts are fast. `--no-warmup` skips the warmup pass.
-- **Version pinning**: `LLAMA_REF` (Dockerfile) is the only place the `llama.cpp` release appears — bump it with `.\build.ps1 --build-arg LLAMA_REF=b12000` and rebuild.
-- **Reasoning**: `--reasoning-format none` keeps the model's thinking inline in `content` (in `think` tags) instead of a separate `reasoning_content` field, which some API clients fragment token by token.
-- **Slots**: saved slot state is written to `/cache/llama-slots` inside the cache volume.
-- **Performance (B70)**: decoding ~37 t/s at short context, degrading to 17–20 t/s around 111k tokens of context.
+- **Disk usage.** `docker system df` shows the image; the model files stay in `MODELS_DIR` and are not copied into the image.

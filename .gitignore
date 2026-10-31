@@ -1,8 +1,4 @@
-# Model files (GGUF) - put them in the repository root, never commit them
+# Model files (GGUF) - downloaded by run.* into the repository root, never committed
 /Qwen3.8-27B-UD-Q4_K_M.gguf
 /mmproj-Qwen3.8-27B-BF16.gguf
 *.part
-
-# Local leftovers from the previous native launcher
-/llama-*/
-/cache/

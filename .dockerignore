@@ -1,12 +1,10 @@
 # Only entrypoint.sh is copied from the build context. Everything else -
-# models, caches, git metadata, scripts - stays on the host.
+# models, git metadata, scripts - stays on the host.
 .git
 .github
 .gitattributes
 *.gguf
 *.part
-cache/
-llama-*/
 *.md
 LICENSE
 *.ps1
