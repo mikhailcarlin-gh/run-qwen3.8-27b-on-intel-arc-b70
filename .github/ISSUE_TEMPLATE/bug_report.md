@@ -17,4 +17,5 @@ What happened?
 **Environment**
 - OS: [Windows 11 / Linux distro]
 - GPU: [Intel Arc Pro B70 / other]
-- llama.cpp build: [e.g. b11953]
+- Image: `qwen3.8-27b-arc:local` (`LLAMA_REF` / llama.cpp build, e.g. b11953)
+- How launched: `build.ps1` / `build.sh` + `run.ps1` / `run.sh`

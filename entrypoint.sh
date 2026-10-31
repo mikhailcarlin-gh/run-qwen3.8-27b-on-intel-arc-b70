@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Container entrypoint - the same launch as start.sh, driven by
-# environment variables (defaults in the Dockerfile).
+# Container entrypoint - the llama-server launch, driven by environment
+# variables (defaults in the Dockerfile).
 
 # --- Config (env overrides) ---
 : "${MODEL_PATH:=/models/Qwen3.8-27B-UD-Q4_K_M.gguf}"
@@ -33,7 +33,7 @@ if [[ ! -x "$SERVER_BIN" ]]; then
 fi
 if [[ ! -f "$MODEL_PATH" ]]; then
     echo "error: model not found at $MODEL_PATH" >&2
-    echo "       mount the GGUFs at /models (see docker-compose.yml)" >&2
+    echo "       mount the GGUFs at /models (see run.ps1 / run.sh)" >&2
     exit 1
 fi
 
@@ -46,7 +46,7 @@ if [[ -n "$missing" ]]; then
     exit 1
 fi
 
-# --- SYCL environment (same as start.sh) ---
+# --- SYCL environment ---
 # Level Zero only: skip the OpenCL adapter of the same GPU.
 export ONEAPI_DEVICE_SELECTOR="level_zero:gpu"
 export ZES_ENABLE_SYSMAN="1"

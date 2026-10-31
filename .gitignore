@@ -1,9 +1,8 @@
-# Downloaded by setup.ps1 / setup.sh - never commit binaries
-/llama-b11953-bin-win-sycl-x64/
-/llama-b11953-bin-ubuntu-sycl-fp16-x64/
+# Model files (GGUF) - put them in the repository root, never commit them
 /Qwen3.8-27B-UD-Q4_K_M.gguf
 /mmproj-Qwen3.8-27B-BF16.gguf
 *.part
 
-# Runtime cache (slot saves, compiled SYCL kernels)
+# Local leftovers from the previous native launcher
+/llama-*/
 /cache/

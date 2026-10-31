@@ -1,13 +1,12 @@
 # Qwen3.8-27B on an Intel Arc GPU (SYCL/Level Zero).
 #
 # llama.cpp is built from source in this image - the model files are NOT
-# baked in, they are mounted at /models (see docker-compose.yml).
+# baked in, they are mounted at /models (see run.ps1 / run.sh).
 #
-#   Windows (Docker Desktop, WSL2 backend):  docker compose --profile wsl2  up --build
-#   Linux (bare metal):                      docker compose --profile linux up --build
+#   Windows (Docker Desktop, WSL2 backend):  .\build.ps1 , then .\run.ps1
+#   Linux (bare metal):                      ./build.sh  , then ./run.sh
 #
-# Pinned to the same llama.cpp release as setup.* / start.* (LLAMA_BUILD).
-# Bump all of them together.
+# Bump LLAMA_REF to move to another llama.cpp release.
 
 ARG LLAMA_REF=b11953
 ARG ONEAPI_VERSION=2026.1.1-devel-ubuntu24.04
@@ -64,7 +63,7 @@ FROM docker.io/intel/oneapi-toolkit:${ONEAPI_VERSION} AS runtime
 
 # Neo runtime (Level Zero ICD, IGC, ocloc) for bare-metal Linux.
 # On WSL2/Docker Desktop the GPU is reached through /dev/dxg instead -
-# see the "wsl2" profile in docker-compose.yml.
+# see the device handling in run.ps1 / run.sh.
 # Same versions as llama.cpp's own .devops/intel.Dockerfile.
 ARG IGC_VERSION=v2.34.4
 ARG IGC_VERSION_FULL=2_2.34.4+21428
@@ -95,7 +94,7 @@ COPY --from=build /app/llama-server /app/sycl-ls /app/
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
-# Defaults mirror start.sh - override per container or via the compose file.
+# Defaults match the run scripts - override per container with --env.
 ENV MODEL_PATH=/models/Qwen3.8-27B-UD-Q4_K_M.gguf \
     MMPROJ_PATH=/models/mmproj-Qwen3.8-27B-BF16.gguf \
     MODEL_ALIAS=qwen3.8-27b \
