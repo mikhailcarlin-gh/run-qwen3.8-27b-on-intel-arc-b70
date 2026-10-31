@@ -7,17 +7,13 @@ Docker image that serves **Qwen3.8-27B** with [llama.cpp](https://github.com/ggm
 ## Quick start
 
 1. Put both GGUFs into the repository root (see [Models](#models)).
-2. Build the image — the first build compiles `llama.cpp`, plan for ~30–60 min:
+2. Start the server:
 
    ```powershell
-   .\build.ps1        # Windows     (Linux: ./build.sh)
+   .\run.ps1        # Windows     (Linux: ./run.sh)
    ```
 
-3. Start the server:
-
-   ```powershell
-   .\run.ps1          # Windows     (Linux: ./run.sh)
-   ```
+That is the only command. On the first run it builds the image (~30–60 min: `llama.cpp` is compiled from source), then starts the container; later runs go straight to the server. Before launching it checks that Docker is running, that the model files are in place, and that nothing else holds the port — if an older `llama-server` does, the script offers to stop it (one GPU, one model).
 
 | Endpoint | URL |
 | --- | --- |
@@ -31,8 +27,8 @@ The container runs in the foreground: Ctrl+C stops and removes it, the log is it
 
 | Script | What it does |
 | --- | --- |
-| `build.ps1` / `build.sh` | `docker build` of this directory. Extra arguments are passed to `docker build`, e.g. `--build-arg LLAMA_REF=b12000` |
-| `run.ps1` / `run.sh` | starts the container: models mounted at `/models` (read-only), SYCL cache volume at `/cache`, port `127.0.0.1:8010` |
+| `run.ps1` / `run.sh` | the one command: builds the image if it is missing, checks models, port and Docker, then starts the container with models mounted at `/models` (read-only) and the SYCL cache volume at `/cache` |
+| `build.ps1` / `build.sh` | rebuild the image explicitly, e.g. after `--build-arg LLAMA_REF=b12000` (extra arguments are passed to `docker build`) |
 
 `run.*` detects the platform on its own:
 

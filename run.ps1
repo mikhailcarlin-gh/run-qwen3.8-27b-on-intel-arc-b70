@@ -1,10 +1,13 @@
-# Run llama-server from the image with the repository root (or MODELS_DIR)
-# mounted at /models. Windows: Docker Desktop with the WSL2 backend - the GPU
-# is reached through the paravirtual /dev/dxg device.
+# Start Qwen3.8-27B in Docker - the only command you need.
+#
+# Builds the image on the first run, checks that Docker is up, that the models
+# are in place and that no other llama-server is holding the GPU, then starts
+# the container.
 #
 # Overrides via environment, e.g.:
-#   $env:MODELS_DIR = 'D:\models'; .\run.ps1
+#   $env:MODELS_DIR = 'D:\models'; $env:PORT = '8080'; .\run.ps1
 $ErrorActionPreference = 'Stop'
+Set-Location $PSScriptRoot
 
 $Image = if ($env:IMAGE) { $env:IMAGE } else { 'qwen3.8-27b-arc:local' }
 $Name = if ($env:NAME) { $env:NAME } else { 'qwen3.8-27b' }
@@ -14,12 +17,76 @@ $ModelPath = if ($env:MODEL_PATH) { $env:MODEL_PATH } else { '/models/Qwen3.8-27
 $MmprojPath = if ($env:MMPROJ_PATH) { $env:MMPROJ_PATH } else { '/models/mmproj-Qwen3.8-27B-BF16.gguf' }
 $CacheVolume = if ($env:CACHE_VOLUME) { $env:CACHE_VOLUME } else { 'qwen3.8-27b-arc-sycl-cache' }
 
-& docker image inspect $Image *> $null
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "image $Image not found - run .\build.ps1 first"
+function Stop-WithError([string]$Message) {
+    Write-Host "error: $Message" -ForegroundColor Red
     exit 1
 }
 
+# Host path behind a /models/... container path ('' if not under /models).
+function Get-HostPath([string]$ContainerPath) {
+    $prefix = '/models/'
+    if (-not $ContainerPath.StartsWith($prefix)) { return '' }
+    return Join-Path $ModelsDir $ContainerPath.Substring($prefix.Length)
+}
+
+# --- Docker is up? ---
+& docker version --format '{{.Server.Version}}' *> $null
+if ($LASTEXITCODE -ne 0) {
+    Stop-WithError 'Docker is not running - start Docker Desktop and try again'
+}
+
+# --- Models present? ---
+$hostModel = Get-HostPath $ModelPath
+if ($hostModel -and -not (Test-Path $hostModel)) {
+    Stop-WithError "model not found: $hostModel`n       put the GGUF files into $ModelsDir (see README, Models)"
+}
+$hostMmproj = Get-HostPath $MmprojPath
+if ($hostMmproj -and -not (Test-Path $hostMmproj)) {
+    Write-Host "warning: vision projector not found: $hostMmproj - running text-only" -ForegroundColor Yellow
+}
+
+# --- Image present? Build it on the first run. ---
+& docker image inspect $Image *> $null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "image $Image not found - building it first (30-60 min: llama.cpp is compiled from source)" -ForegroundColor Yellow
+    & (Join-Path $PSScriptRoot 'build.ps1')
+    if ($LASTEXITCODE -ne 0) { Stop-WithError 'docker build failed' }
+}
+
+# --- Port free, no other llama-server: one GPU, one model ---
+$listener = Get-NetTCPConnection -LocalPort ([int]$Port) -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -First 1
+if ($listener) {
+    $holder = Get-Process -Id $listener.OwningProcess -ErrorAction SilentlyContinue
+    $holderName = if ($holder) { $holder.ProcessName } else { 'unknown process' }
+    if ($holderName -ne 'llama-server') {
+        Stop-WithError "port $Port is already in use by $holderName (pid $($listener.OwningProcess)) - set `$env:PORT to another port"
+    }
+}
+
+$stale = @(
+    if ($listener) { [int]$listener.OwningProcess }
+    Get-Process -Name 'llama-server' -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Id
+) | Sort-Object -Unique
+
+if ($stale.Count -gt 0) {
+    $list = ($stale | ForEach-Object { "pid $_" }) -join ', '
+    Write-Host "another llama-server is running ($list)." -ForegroundColor Yellow
+    Write-Host 'Only one copy of the model fits into the GPU - it has to stop before the container starts.' -ForegroundColor Yellow
+    if ([Console]::IsInputRedirected) {
+        Stop-WithError 'stop it and run .\run.ps1 again'
+    }
+    $answer = Read-Host 'Stop it now? [y/N]'
+    if ($answer -notmatch '^([yY]|[yY][eE][sS])$') {
+        Stop-WithError 'cancelled - nothing was started'
+    }
+    foreach ($stalePid in $stale) {
+        Stop-Process -Id $stalePid -Force -ErrorAction SilentlyContinue
+    }
+    Start-Sleep -Seconds 3
+}
+
+# --- Launch ---
 $dockerArgs = @(
     'run', '--rm', '-i', '--name', $Name,
     '--publish', "127.0.0.1:${Port}:8010",
@@ -46,7 +113,20 @@ $dockerArgs += @(
     $Image
 )
 
+Write-Host "Starting qwen3.8-27b on http://127.0.0.1:$Port (Ctrl+C to stop)" -ForegroundColor Cyan
+Write-Host 'The first prompt after a rebuild is slow: SYCL compiles its kernels.' -ForegroundColor DarkGray
+Write-Host ''
+
 # The server logs to stderr; keep it as plain output, not PowerShell errors.
 $ErrorActionPreference = 'Continue'
 & docker @dockerArgs
-exit $LASTEXITCODE
+$code = $LASTEXITCODE
+
+if ($code -eq 139 -or $code -eq 137) {
+    Write-Host ''
+    Write-Host "llama-server died at the GPU allocation (exit $code)." -ForegroundColor Yellow
+    Write-Host 'That is the out-of-VRAM signature: another model still holds the GPU - stop it,' -ForegroundColor Yellow
+    Write-Host 'or lower $env:CONTEXT (e.g. 32768) to fit into the free memory.' -ForegroundColor Yellow
+}
+
+exit $code
